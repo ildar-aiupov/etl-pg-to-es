@@ -1,0 +1,59 @@
+version: '3'
+
+volumes:
+  pg_data:
+
+services:
+
+  postgres:
+    image: postgres:13
+    container_name: postgres
+    env_file: .env
+    ports:
+      - 5432:5432
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres:/docker-entrypoint-initdb.d  # распаковка дампа
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "${DB_NAME}", "-U", "${POSTGRES_USER}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 30  
+
+  elastic:
+    image: elasticsearch:8.6.2
+    container_name: elastic
+    ports:
+      - 9200:9200
+    environment:
+      - discovery.type=single-node 
+      - xpack.security.enabled=false 
+      - "ES_JAVA_OPTS=-Xms200m -Xmx200m"
+    attach: false
+
+  etl-movies:
+    build: ./etl-movies/
+    container_name: etl-movies
+    env_file: .env
+    depends_on:
+      - postgres
+      - elastic
+    restart: always
+  
+  etl-genres:
+    build: ./etl-genres/
+    container_name: etl-genres
+    env_file: .env
+    depends_on:
+      - postgres
+      - elastic
+    restart: always
+
+  etl-persons:
+    build: ./etl-persons/
+    container_name: etl-persons
+    env_file: .env
+    depends_on:
+      - postgres
+      - elastic
+    restart: always
